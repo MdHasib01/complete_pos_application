@@ -12,16 +12,17 @@ type Category struct {
 }
 
 type Product struct {
-	Id         string    `json:"id"`
-	Name       string    `json:"name"`
-	NameBn     string    `json:"name_bn"`
-	Barcode    string    `json:"barcode"`
-	CategoryId *string   `json:"category_id"`
-	Price      float64   `json:"price"`
-	Stock      int       `json:"stock"`
-	ImageUrl   *string   `json:"image_url"`
-	CreatedAt  string    `json:"created_at"`
-	Category   *Category `json:"categories,omitempty"`
+	Id            string    `json:"id"`
+	Name          string    `json:"name"`
+	NameBn        string    `json:"name_bn"`
+	Barcode       string    `json:"barcode"`
+	CategoryId    *string   `json:"category_id"`
+	Price         float64   `json:"price"`
+	Stock         int       `json:"stock"`
+	ImageUrl      *string   `json:"image_url"`
+	ImagePublicId *string   `json:"image_public_id"`
+	CreatedAt     string    `json:"created_at"`
+	Category      *Category `json:"categories,omitempty"`
 }
 
 type Sale struct {
@@ -52,13 +53,28 @@ type CategoryRequest struct {
 }
 
 type ProductRequest struct {
-	Name       string  `json:"name"`
-	NameBn     string  `json:"name_bn"`
-	Barcode    string  `json:"barcode"`
-	CategoryId *string `json:"category_id"`
-	Price      float64 `json:"price"`
-	Stock      int     `json:"stock"`
-	ImageUrl   *string `json:"image_url"`
+	Name          string  `json:"name"`
+	NameBn        string  `json:"name_bn"`
+	Barcode       string  `json:"barcode"`
+	CategoryId    *string `json:"category_id"`
+	Price         float64 `json:"price"`
+	Stock         int     `json:"stock"`
+	ImageUrl      *string `json:"image_url"`
+	ImagePublicId *string `json:"image_public_id"`
+}
+
+// UploadImageRequest carries a base64 data URI (data:image/...;base64,....).
+type UploadImageRequest struct {
+	Image string `json:"image"`
+}
+
+type UploadImageResponse struct {
+	PublicId string `json:"public_id"`
+	Url      string `json:"url"`
+}
+
+type DeleteImageRequest struct {
+	PublicId string `json:"public_id"`
 }
 
 type SaleItemRequest struct {

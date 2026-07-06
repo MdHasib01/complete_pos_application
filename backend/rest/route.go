@@ -71,6 +71,10 @@ func router() *mux.Router {
 	router.Methods("PUT").Path("/products/{id}").Name("updateProduct").HandlerFunc(UpdateProductHandler)
 	router.Methods("DELETE").Path("/products/{id}").Name("deleteProduct").HandlerFunc(DeleteProductHandler)
 
+	// POS image uploads (Cloudinary)
+	router.Methods("POST").Path("/uploads/image").Name("uploadImage").HandlerFunc(UploadImageHandler)
+	router.Methods("DELETE").Path("/uploads/image").Name("deleteImage").HandlerFunc(DeleteImageHandler)
+
 	// POS sales
 	router.Methods("POST").Path("/sales").Name("createSale").HandlerFunc(CreateSaleHandler)
 	router.Methods("GET").Path("/sales").Name("getSales").HandlerFunc(GetSalesHandler)

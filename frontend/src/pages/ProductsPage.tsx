@@ -17,6 +17,8 @@ import {
   Loader2,
   AlertCircle,
   ArrowLeft,
+  ImagePlus,
+  X,
 } from 'lucide-react';
 
 export default function ProductsPage() {
@@ -35,6 +37,11 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Cloudinary public_id uploaded during this form session but not yet persisted
+  // to a saved product. If the user cancels or the save fails, it is removed.
+  const [pendingPublicId, setPendingPublicId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -43,6 +50,8 @@ export default function ProductsPage() {
     price: '',
     stock: '',
     category_id: '',
+    image_url: '',
+    image_public_id: '',
   });
 
   useEffect(() => {
@@ -84,9 +93,60 @@ export default function ProductsPage() {
         price: String(data.price),
         stock: String(data.stock),
         category_id: data.category_id || '',
+        image_url: data.image_url || '',
+        image_public_id: data.image_public_id || '',
       });
+      setPendingPublicId(null);
       setShowForm(true);
     }
+  };
+
+  const fileToDataURI = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError(t('saveError'));
+      return;
+    }
+
+    setError(null);
+    setUploadingImage(true);
+    try {
+      const dataURI = await fileToDataURI(file);
+      const { public_id, url } = await api.uploadImage(dataURI);
+
+      // Replace an earlier unsaved upload from this same session.
+      if (pendingPublicId) {
+        api.deleteImage(pendingPublicId).catch(() => {});
+      }
+
+      setPendingPublicId(public_id);
+      setFormData((prev) => ({ ...prev, image_url: url, image_public_id: public_id }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('saveError'));
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    // Only delete from Cloudinary if this upload isn't yet attached to a saved
+    // product; a persisted image is removed by the backend on save/delete.
+    if (pendingPublicId) {
+      api.deleteImage(pendingPublicId).catch(() => {});
+      setPendingPublicId(null);
+    }
+    setFormData((prev) => ({ ...prev, image_url: '', image_public_id: '' }));
   };
 
   const generateBarcode = () => {
@@ -112,6 +172,8 @@ export default function ProductsPage() {
         price: parseFloat(formData.price),
         stock: parseInt(formData.stock) || 0,
         category_id: formData.category_id || null,
+        image_url: formData.image_url || null,
+        image_public_id: formData.image_public_id || null,
       };
 
       if (selectedProduct) {
@@ -120,9 +182,17 @@ export default function ProductsPage() {
         await api.createProduct(productData);
       }
 
+      // Saved successfully — the image is now owned by the product.
+      setPendingPublicId(null);
       await fetchProducts();
       handleCloseForm();
     } catch (err) {
+      // Save failed: drop the just-uploaded (unsaved) image from Cloudinary.
+      if (pendingPublicId) {
+        api.deleteImage(pendingPublicId).catch(() => {});
+        setPendingPublicId(null);
+        setFormData((prev) => ({ ...prev, image_url: '', image_public_id: '' }));
+      }
       setError(err instanceof Error ? err.message : t('saveError'));
     } finally {
       setSaving(false);
@@ -142,6 +212,11 @@ export default function ProductsPage() {
   };
 
   const handleCloseForm = () => {
+    // Cancelling with an unsaved upload: remove it from Cloudinary.
+    if (pendingPublicId) {
+      api.deleteImage(pendingPublicId).catch(() => {});
+      setPendingPublicId(null);
+    }
     setShowForm(false);
     setSelectedProduct(null);
     setFormData({
@@ -151,6 +226,8 @@ export default function ProductsPage() {
       price: '',
       stock: '',
       category_id: '',
+      image_url: '',
+      image_public_id: '',
     });
     navigate('/products');
   };
@@ -196,6 +273,50 @@ export default function ProductsPage() {
                   <span className="text-sm font-bangla">{error}</span>
                 </div>
               )}
+
+              {/* Product Image (Cloudinary) */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 font-bangla">
+                  {t('productImage')}
+                </label>
+                {formData.image_url ? (
+                  <div className="relative w-40 h-40 rounded-xl overflow-hidden border border-gray-200">
+                    <img
+                      src={formData.image_url}
+                      alt={formData.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-1.5 right-1.5 p-1.5 bg-white/90 hover:bg-white rounded-lg shadow-sm"
+                      title={t('removeImage')}
+                    >
+                      <X className="w-4 h-4 text-red-600" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-40 h-40 rounded-xl border-2 border-dashed border-gray-300 cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/50 transition-colors">
+                    {uploadingImage ? (
+                      <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
+                    ) : (
+                      <>
+                        <ImagePlus className="w-7 h-7 text-gray-400 mb-1" />
+                        <span className="text-xs text-gray-500 font-bangla">
+                          {t('uploadImage')}
+                        </span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      disabled={uploadingImage}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
 
               {/* Barcode Preview */}
               {formData.barcode && (
@@ -316,7 +437,7 @@ export default function ProductsPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || uploadingImage}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 font-bangla"
                 >
                   {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}

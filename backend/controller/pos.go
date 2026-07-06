@@ -4,13 +4,34 @@ import (
 	"strings"
 	"time"
 
+	config "github.com/mdhasib01/go-rest-starter/config"
 	dao "github.com/mdhasib01/go-rest-starter/dao"
 	itn "github.com/mdhasib01/go-rest-starter/itn"
 	model "github.com/mdhasib01/go-rest-starter/model"
+	"github.com/mdhasib01/go-rest-starter/pkg/cloudinary"
 	"github.com/mdhasib01/go-rest-starter/pkg/data"
+	"github.com/mdhasib01/go-rest-starter/pkg/logger"
 	security "github.com/mdhasib01/go-rest-starter/security"
 	utils "github.com/mdhasib01/go-rest-starter/utils"
 )
+
+func cld() *cloudinary.Client {
+	return cloudinary.New(
+		config.Param.CloudinaryCloudName,
+		config.Param.CloudinaryAPIKey,
+		config.Param.CloudinaryAPISecret,
+	)
+}
+
+// destroyImage removes an asset from Cloudinary, best-effort (logs on failure).
+func destroyImage(publicID string) {
+	if strings.TrimSpace(publicID) == "" {
+		return
+	}
+	if err := cld().Destroy(publicID); err != nil {
+		logger.GetLogger().LogErrors(err, map[string]interface{}{"public_id": publicID})
+	}
+}
 
 // ---------- Auth ----------
 
@@ -219,11 +240,79 @@ func POSUpdateProduct(id string, req model.ProductRequest) (model.Product, error
 	if err := validateProduct(&req); err != nil {
 		return model.Product{}, err
 	}
-	return dao.UpdateProduct(id, req)
+
+	old, err := dao.GetProductByID(id)
+	if err != nil {
+		return model.Product{}, err
+	}
+
+	updated, err := dao.UpdateProduct(id, req)
+	if err != nil {
+		return model.Product{}, err
+	}
+
+	// If the image was replaced or removed, delete the previous Cloudinary asset.
+	if old.ImagePublicId != nil && *old.ImagePublicId != "" {
+		newID := ""
+		if req.ImagePublicId != nil {
+			newID = *req.ImagePublicId
+		}
+		if newID != *old.ImagePublicId {
+			destroyImage(*old.ImagePublicId)
+		}
+	}
+
+	return updated, nil
 }
 
 func POSDeleteProduct(id string) error {
-	return dao.DeleteProduct(id)
+	product, err := dao.GetProductByID(id)
+	if err != nil {
+		return err
+	}
+
+	if err := dao.DeleteProduct(id); err != nil {
+		return err
+	}
+
+	// Product row gone — remove its image from Cloudinary too.
+	if product.ImagePublicId != nil {
+		destroyImage(*product.ImagePublicId)
+	}
+	return nil
+}
+
+// ---------- Image upload ----------
+
+func POSUploadImage(dataURI string) (model.UploadImageResponse, error) {
+	if strings.TrimSpace(dataURI) == "" {
+		return model.UploadImageResponse{}, model.NewError(itn.ErrorInvalidData, 400)
+	}
+
+	client := cld()
+	if !client.Enabled() {
+		logger.GetLogger().LogErrors(model.NewError("cloudinary not configured", 500), nil)
+		return model.UploadImageResponse{}, model.NewError(itn.ErrorUnknown, 500)
+	}
+
+	res, err := client.Upload(dataURI, "pos_products")
+	if err != nil {
+		logger.GetLogger().LogErrors(err, nil)
+		return model.UploadImageResponse{}, model.NewError(itn.ErrorUnknown, 502)
+	}
+
+	return model.UploadImageResponse{PublicId: res.PublicID, Url: res.URL}, nil
+}
+
+func POSDeleteImage(publicID string) error {
+	if strings.TrimSpace(publicID) == "" {
+		return model.NewError(itn.ErrorInvalidData, 400)
+	}
+	if err := cld().Destroy(publicID); err != nil {
+		logger.GetLogger().LogErrors(err, nil)
+		return model.NewError(itn.ErrorUnknown, 502)
+	}
+	return nil
 }
 
 // ---------- Sales ----------

@@ -136,7 +136,7 @@ func DeleteCategory(id string) error {
 // ---------- Products ----------
 
 const productSelect = `SELECT p.id, p.name, p.name_bn, p.barcode, p.category_id, p.price,
-							  p.stock, p.image_url, p.created_at,
+							  p.stock, p.image_url, p.image_public_id, p.created_at,
 							  c.id, c.name, c.name_bn, c.created_at
 					   FROM products p
 					   LEFT JOIN categories c ON c.id = p.category_id`
@@ -146,7 +146,7 @@ func scanProduct(scan func(dest ...interface{}) error) (model.Product, error) {
 	var catID, catName, catNameBn, catCreated sql.NullString
 	err := scan(
 		&p.Id, &p.Name, &p.NameBn, &p.Barcode, &p.CategoryId, &p.Price,
-		&p.Stock, &p.ImageUrl, &p.CreatedAt,
+		&p.Stock, &p.ImageUrl, &p.ImagePublicId, &p.CreatedAt,
 		&catID, &catName, &catNameBn, &catCreated,
 	)
 	if err != nil {
@@ -203,11 +203,11 @@ func GetProductByID(id string) (model.Product, error) {
 }
 
 func CreateProduct(req model.ProductRequest) (model.Product, error) {
-	const query = `INSERT INTO products (name, name_bn, barcode, category_id, price, stock, image_url)
-				   VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
+	const query = `INSERT INTO products (name, name_bn, barcode, category_id, price, stock, image_url, image_public_id)
+				   VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`
 	var id string
 	err := DB.QueryRow(query, req.Name, req.NameBn, req.Barcode, req.CategoryId,
-		req.Price, req.Stock, req.ImageUrl).Scan(&id)
+		req.Price, req.Stock, req.ImageUrl, req.ImagePublicId).Scan(&id)
 	if err != nil {
 		logger.GetLogger().LogErrors(err, map[string]interface{}{"query": query})
 		return model.Product{}, model.UnknownError
@@ -218,10 +218,10 @@ func CreateProduct(req model.ProductRequest) (model.Product, error) {
 func UpdateProduct(id string, req model.ProductRequest) (model.Product, error) {
 	const query = `UPDATE products
 				   SET name = $1, name_bn = $2, barcode = $3, category_id = $4,
-					   price = $5, stock = $6, image_url = $7
-				   WHERE id = $8`
+					   price = $5, stock = $6, image_url = $7, image_public_id = $8
+				   WHERE id = $9`
 	res, err := DB.Exec(query, req.Name, req.NameBn, req.Barcode, req.CategoryId,
-		req.Price, req.Stock, req.ImageUrl, id)
+		req.Price, req.Stock, req.ImageUrl, req.ImagePublicId, id)
 	if err != nil {
 		logger.GetLogger().LogErrors(err, map[string]interface{}{"query": query})
 		return model.Product{}, model.UnknownError

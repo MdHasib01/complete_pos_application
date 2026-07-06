@@ -64,6 +64,10 @@ type appConfig struct {
 	StripePublishableKey string `json:"stripePublishableKey"`
 	StripeWebhookSecret  string `json:"stripeWebhookSecret"`
 
+	CloudinaryCloudName string `json:"cloudinaryCloudName"`
+	CloudinaryAPIKey    string `json:"cloudinaryAPIKey"`
+	CloudinaryAPISecret string `json:"cloudinaryAPISecret"`
+
 	SMTP_DETAILS SMTP_DETAILS `json:"SMTP_DETAILS"`
 
 	Account Account `json:"ACCOUNT"`

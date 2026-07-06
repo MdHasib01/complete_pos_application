@@ -57,6 +57,9 @@ const resources = {
       deleteProduct: 'Delete Product',
       scanBarcode: 'Scan Barcode',
       generateBarcode: 'Generate Barcode',
+      productImage: 'Product Image',
+      uploadImage: 'Upload',
+      removeImage: 'Remove image',
       productNameRequired: 'Product name is required',
       priceRequired: 'Price is required',
 
@@ -168,6 +171,9 @@ const resources = {
       deleteProduct: 'পণ্য মুছুন',
       scanBarcode: 'বারকোড স্ক্যান',
       generateBarcode: 'বারকোড তৈরি',
+      productImage: 'পণ্যের ছবি',
+      uploadImage: 'আপলোড',
+      removeImage: 'ছবি সরান',
       productNameRequired: 'পণ্যের নাম আবশ্যক',
       priceRequired: 'দাম আবশ্যক',
 

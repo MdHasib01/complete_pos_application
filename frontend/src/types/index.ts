@@ -40,6 +40,7 @@ export interface Product {
   price: number;
   stock: number;
   image_url: string | null;
+  image_public_id: string | null;
   created_at: string;
   categories?: Category;
 }

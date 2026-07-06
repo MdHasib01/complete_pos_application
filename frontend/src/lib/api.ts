@@ -110,6 +110,12 @@ export const api = {
     request<Product>('PUT', `/products/${id}`, data),
   deleteProduct: (id: string) => request<boolean>('DELETE', `/products/${id}`),
 
+  // Image uploads (Cloudinary, via backend)
+  uploadImage: (image: string) =>
+    request<{ public_id: string; url: string }>('POST', '/uploads/image', { image }),
+  deleteImage: (public_id: string) =>
+    request<boolean>('DELETE', '/uploads/image', { public_id }),
+
   // Sales
   createSale: (data: SaleRequest) => request<Sale>('POST', '/sales', data),
   getSales: (date: string) => request<Sale[]>('GET', `/sales?date=${date}`),

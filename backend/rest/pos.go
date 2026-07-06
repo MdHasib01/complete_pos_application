@@ -195,6 +195,54 @@ func DeleteProductHandler(w http.ResponseWriter, r *http.Request) {
 	JSON(w, true, err)
 }
 
+// ---------- Image upload ----------
+
+// UploadImageHandler godoc
+// @Summary upload a product image to Cloudinary
+// @Tags pos-uploads
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param body body model.UploadImageRequest true "base64 data URI"
+// @Success 200 {object} model.UploadImageResponse
+// @Router /uploads/image [post]
+func UploadImageHandler(w http.ResponseWriter, r *http.Request) {
+	if _, err := isAuthorized(r, ManageProductsPermission); err != nil {
+		JSON(w, nil, err)
+		return
+	}
+	var req model.UploadImageRequest
+	if err := readRequestBody(r, &req); err != nil {
+		JSON(w, nil, err)
+		return
+	}
+	res, err := controller.POSUploadImage(req.Image)
+	JSON(w, res, err)
+}
+
+// DeleteImageHandler godoc
+// @Summary delete a product image from Cloudinary
+// @Tags pos-uploads
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param body body model.DeleteImageRequest true "public_id"
+// @Success 200 {boolean} boolean
+// @Router /uploads/image [delete]
+func DeleteImageHandler(w http.ResponseWriter, r *http.Request) {
+	if _, err := isAuthorized(r, ManageProductsPermission); err != nil {
+		JSON(w, nil, err)
+		return
+	}
+	var req model.DeleteImageRequest
+	if err := readRequestBody(r, &req); err != nil {
+		JSON(w, nil, err)
+		return
+	}
+	err := controller.POSDeleteImage(req.PublicId)
+	JSON(w, true, err)
+}
+
 // ---------- Sales ----------
 
 func CreateSaleHandler(w http.ResponseWriter, r *http.Request) {

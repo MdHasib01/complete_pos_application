@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', 'Anek Bangla', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer utilities {
+  .font-bangla {
+    font-family: 'Anek Bangla', sans-serif;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  word-spacing: 0.1em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-feature-settings: 'kern' 1;
+  -webkit-font-feature-settings: 'kern';
+  -moz-font-feature-settings: 'kern';
+  font-feature-settings: 'kern' 1;
+  font-kerning: normal;
+  -webkit-hyphens: manual;
+  hyphens: manual;
+  line-break: auto;
+  lang: bn;
+  unicode-bidi: plaintext;
+  text-align: left;
+}
+
+.lang-bn {
+  font-family: 'Anek Bangla', sans-serif;
+}
+}

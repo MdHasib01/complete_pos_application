@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../lib/supabase';
-import { Product, Sale } from '../types';
+import { api } from '../lib/api';
+import { Sale } from '../types';
 import Layout from '../components/Layout';
 import {
   DollarSign,
   Package,
   AlertTriangle,
   Tags,
-  TrendingUp,
   ShoppingCart,
   Plus,
   Clock,
@@ -34,32 +33,16 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const [salesRes, productsRes, categoriesRes] = await Promise.all([
-        supabase
-          .from('sales')
-          .select('id, invoice_number, total, created_at')
-          .gte('created_at', today.toISOString())
-          .order('created_at', { ascending: false })
-          .limit(5),
-        supabase.from('products').select('id, stock'),
-        supabase.from('categories').select('id'),
-      ]);
-
-      const todaySalesTotal =
-        salesRes.data?.reduce((sum: number, sale) => sum + Number(sale.total), 0) || 0;
-      const lowStockCount = productsRes.data?.filter((p) => p.stock < 10).length || 0;
+      const data = await api.getDashboard();
 
       setStats({
-        todaySales: todaySalesTotal,
-        totalProducts: productsRes.data?.length || 0,
-        lowStock: lowStockCount,
-        totalCategories: categoriesRes.data?.length || 0,
+        todaySales: data.today_sales || 0,
+        totalProducts: data.total_products || 0,
+        lowStock: data.low_stock || 0,
+        totalCategories: data.total_categories || 0,
       });
 
-      setRecentSales(salesRes.data || []);
+      setRecentSales(data.recent_sales || []);
     } finally {
       setLoading(false);
     }

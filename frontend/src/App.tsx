@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { CartProvider } from './context/CartContext';
 import './i18n';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { Product, Category } from '../types';
 import { useCart } from '../context/CartContext';
 import Layout from '../components/Layout';
@@ -39,13 +39,13 @@ export default function POSPage() {
 
   const fetchData = async () => {
     try {
-      const [productsRes, categoriesRes] = await Promise.all([
-        supabase.from('products').select('*, categories(*)').gt('stock', 0),
-        supabase.from('categories').select('*'),
+      const [products, categories] = await Promise.all([
+        api.getProducts(true),
+        api.getCategories(),
       ]);
 
-      setProducts(productsRes.data || []);
-      setCategories(categoriesRes.data || []);
+      setProducts(products || []);
+      setCategories(categories || []);
     } finally {
       setLoading(false);
     }
@@ -71,38 +71,14 @@ export default function POSPage() {
   const handleCheckout = async () => {
     setProcessing(true);
     try {
-      const { data: sale, error: saleError } = await supabase
-        .from('sales')
-        .insert([
-          {
-            total,
-            payment_method: paymentMethod,
-          },
-        ])
-        .select()
-        .single();
-
-      if (saleError) throw saleError;
-
-      const saleItems = items.map((item) => ({
-        sale_id: sale.id,
-        product_id: item.product.id,
-        quantity: item.quantity,
-        price: item.product.price,
-        subtotal: item.product.price * item.quantity,
-      }));
-
-      const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
-
-      if (itemsError) throw itemsError;
-
-      // Update stock
-      for (const item of items) {
-        await supabase
-          .from('products')
-          .update({ stock: item.product.stock - item.quantity })
-          .eq('id', item.product.id);
-      }
+      await api.createSale({
+        payment_method: paymentMethod,
+        items: items.map((item) => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+          price: item.product.price,
+        })),
+      });
 
       setSaleComplete(true);
       setTimeout(() => {

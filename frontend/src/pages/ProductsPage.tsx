@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Barcode from 'react-barcode';
-import { supabase } from '../lib/supabase';
-import { Product, Category } from '../types';
+import { api } from '../lib/api';
+import { Product, Category, Permissions } from '../types';
+import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import {
   Plus,
@@ -12,7 +13,6 @@ import {
   Trash2,
   Package,
   Barcode as BarcodeIcon,
-  X,
   Save,
   Loader2,
   AlertCircle,
@@ -22,8 +22,9 @@ import {
 export default function ProductsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission(Permissions.ManageProducts);
   const { id } = useParams();
-  const isEditing = id === 'new' || Boolean(id);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -60,12 +61,7 @@ export default function ProductsPage() {
 
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, categories(*)')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await api.getProducts();
       setProducts(data || []);
     } finally {
       setLoading(false);
@@ -73,17 +69,12 @@ export default function ProductsPage() {
   };
 
   const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('*');
+    const data = await api.getCategories();
     setCategories(data || []);
   };
 
   const fetchProductDetails = async (productId: string) => {
-    const { data } = await supabase
-      .from('products')
-      .select('*, categories(*)')
-      .eq('id', productId)
-      .maybeSingle();
-
+    const data = await api.getProduct(productId);
     if (data) {
       setSelectedProduct(data);
       setFormData({
@@ -123,17 +114,11 @@ export default function ProductsPage() {
         category_id: formData.category_id || null,
       };
 
-      let error;
       if (selectedProduct) {
-        ({ error } = await supabase
-          .from('products')
-          .update(productData)
-          .eq('id', selectedProduct.id));
+        await api.updateProduct(selectedProduct.id, productData);
       } else {
-        ({ error } = await supabase.from('products').insert([productData]));
+        await api.createProduct(productData);
       }
-
-      if (error) throw error;
 
       await fetchProducts();
       handleCloseForm();
@@ -149,8 +134,7 @@ export default function ProductsPage() {
 
     setDeleting(productId);
     try {
-      const { error } = await supabase.from('products').delete().eq('id', productId);
-      if (error) throw error;
+      await api.deleteProduct(productId);
       setProducts(products.filter((p) => p.id !== productId));
     } finally {
       setDeleting(null);
@@ -366,13 +350,15 @@ export default function ProductsPage() {
               {products.length} {t('items')}
             </p>
           </div>
-          <button
-            onClick={() => navigate('/products/new')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-bangla"
-          >
-            <Plus className="w-5 h-5" />
-            {t('addNewProduct')}
-          </button>
+          {canManage && (
+            <button
+              onClick={() => navigate('/products/new')}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-bangla"
+            >
+              <Plus className="w-5 h-5" />
+              {t('addNewProduct')}
+            </button>
+          )}
         </div>
 
         {/* Search */}
@@ -457,25 +443,27 @@ export default function ProductsPage() {
                     <p className="text-lg font-bold text-emerald-600 font-bangla">
                       {formatCurrency(product.price)}
                     </p>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => navigate(`/products/${product.id}`)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        <Edit className="w-4 h-4 text-gray-600" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        disabled={deleting === product.id}
-                        className="p-2 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        {deleting === product.id ? (
-                          <Loader2 className="w-4 h-4 text-red-600 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        )}
-                      </button>
-                    </div>
+                    {canManage && (
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => navigate(`/products/${product.id}`)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <Edit className="w-4 h-4 text-gray-600" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          disabled={deleting === product.id}
+                          className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          {deleting === product.id ? (
+                            <Loader2 className="w-4 h-4 text-red-600 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../lib/supabase';
-import { Category } from '../types';
+import { api } from '../lib/api';
+import { Category, Permissions } from '../types';
+import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import {
   Plus,
@@ -16,6 +17,8 @@ import {
 
 export default function CategoriesPage() {
   const { t } = useTranslation();
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission(Permissions.ManageCategories);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -35,12 +38,7 @@ export default function CategoriesPage() {
 
   const fetchCategories = async () => {
     try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
+      const data = await api.getCategories();
       setCategories(data || []);
     } finally {
       setLoading(false);
@@ -63,17 +61,11 @@ export default function CategoriesPage() {
         name_bn: formData.name_bn || formData.name,
       };
 
-      let error;
       if (editingCategory) {
-        ({ error } = await supabase
-          .from('categories')
-          .update(categoryData)
-          .eq('id', editingCategory.id));
+        await api.updateCategory(editingCategory.id, categoryData);
       } else {
-        ({ error } = await supabase.from('categories').insert([categoryData]));
+        await api.createCategory(categoryData);
       }
-
-      if (error) throw error;
 
       await fetchCategories();
       handleCloseForm();
@@ -98,8 +90,7 @@ export default function CategoriesPage() {
 
     setDeleting(categoryId);
     try {
-      const { error } = await supabase.from('categories').delete().eq('id', categoryId);
-      if (error) throw error;
+      await api.deleteCategory(categoryId);
       setCategories(categories.filter((c) => c.id !== categoryId));
     } finally {
       setDeleting(null);
@@ -126,13 +117,15 @@ export default function CategoriesPage() {
               {categories.length} {t('categories')}
             </p>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-bangla"
-          >
-            <Plus className="w-5 h-5" />
-            {t('addNewCategory')}
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-bangla"
+            >
+              <Plus className="w-5 h-5" />
+              {t('addNewCategory')}
+            </button>
+          )}
         </div>
 
         {/* Form Modal */}
@@ -240,25 +233,27 @@ export default function CategoriesPage() {
                       <p className="text-sm text-gray-500 font-bangla">{category.name}</p>
                     </div>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleEdit(category)}
-                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <Edit className="w-4 h-4 text-gray-600" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(category.id)}
-                      disabled={deleting === category.id}
-                      className="p-2 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      {deleting === category.id ? (
-                        <Loader2 className="w-4 h-4 text-red-600 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      )}
-                    </button>
-                  </div>
+                  {canManage && (
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleEdit(category)}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <Edit className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(category.id)}
+                        disabled={deleting === category.id}
+                        className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        {deleting === category.id ? (
+                          <Loader2 className="w-4 h-4 text-red-600 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

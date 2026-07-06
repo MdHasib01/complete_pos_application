@@ -2,16 +2,14 @@ import { ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { Permissions } from '../types';
 import {
   LayoutDashboard,
   Package,
   Tags,
   ShoppingCart,
-  FileBarChart,
-  Settings,
   LogOut,
   Menu,
-  X,
   Store,
   Globe,
 } from 'lucide-react';
@@ -21,19 +19,21 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { path: '/', icon: LayoutDashboard, labelKey: 'dashboard' },
-  { path: '/products', icon: Package, labelKey: 'products' },
-  { path: '/categories', icon: Tags, labelKey: 'categories' },
-  { path: '/sales', icon: ShoppingCart, labelKey: 'sales' },
-  { path: '/pos', icon: ShoppingCart, labelKey: 'newSale' },
+  { path: '/', icon: LayoutDashboard, labelKey: 'dashboard', permission: Permissions.ViewDashboard },
+  { path: '/products', icon: Package, labelKey: 'products', permission: Permissions.ViewProducts },
+  { path: '/categories', icon: Tags, labelKey: 'categories', permission: Permissions.ViewCategories },
+  { path: '/sales', icon: ShoppingCart, labelKey: 'sales', permission: Permissions.ViewSales },
+  { path: '/pos', icon: ShoppingCart, labelKey: 'newSale', permission: Permissions.CreateSale },
 ];
 
 export default function Layout({ children }: LayoutProps) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, hasPermission, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const visibleNavItems = navItems.filter((item) => hasPermission(item.permission));
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'bn' ? 'en' : 'bn';
@@ -75,7 +75,7 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               return (
@@ -108,8 +108,13 @@ export default function Layout({ children }: LayoutProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate font-bangla">
-                  {user?.email}
+                  {user?.name || user?.email}
                 </p>
+                {user?.role && (
+                  <p className="text-xs text-emerald-600 font-medium uppercase tracking-wide">
+                    {user.role}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex gap-2">

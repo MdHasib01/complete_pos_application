@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { Sale, SaleItem, Product } from '../types';
 import Layout from '../components/Layout';
 import {
@@ -33,19 +33,7 @@ export default function SalesPage() {
   const fetchSales = async () => {
     setLoading(true);
     try {
-      const startDate = new Date(selectedDate);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(selectedDate);
-      endDate.setHours(23, 59, 59, 999);
-
-      const { data, error } = await supabase
-        .from('sales')
-        .select('*')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await api.getSales(selectedDate);
       setSales(data || []);
     } finally {
       setLoading(false);
@@ -53,15 +41,11 @@ export default function SalesPage() {
   };
 
   const fetchSaleDetails = async (saleId: string) => {
-    const { data } = await supabase
-      .from('sale_items')
-      .select('*, products(*)')
-      .eq('sale_id', saleId);
-
+    const data = await api.getSale(saleId);
     if (data) {
       setSelectedSale({
-        ...sales.find((s) => s.id === saleId)!,
-        items: data as SaleWithDetails['items'],
+        ...data,
+        items: (data.items || []) as SaleWithDetails['items'],
       });
     }
   };

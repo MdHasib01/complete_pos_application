@@ -16,6 +16,7 @@ import {
   X,
   CheckCircle,
   Loader2,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function POSPage() {
@@ -32,6 +33,7 @@ export default function POSPage() {
   const [processing, setProcessing] = useState(false);
   const [paymentReceived, setPaymentReceived] = useState('');
   const [saleComplete, setSaleComplete] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -69,7 +71,9 @@ export default function POSPage() {
   };
 
   const handleCheckout = async () => {
+    if (items.length === 0) return;
     setProcessing(true);
+    setCheckoutError(null);
     try {
       await api.createSale({
         payment_method: paymentMethod,
@@ -88,6 +92,8 @@ export default function POSPage() {
         setPaymentReceived('');
         fetchData();
       }, 2000);
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : t('saveError'));
     } finally {
       setProcessing(false);
     }
@@ -214,6 +220,13 @@ export default function POSPage() {
                   </div>
                 )}
 
+                {checkoutError && (
+                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <span className="text-sm font-bangla">{checkoutError}</span>
+                  </div>
+                )}
+
                 <button
                   onClick={handleCheckout}
                   disabled={processing}
@@ -235,9 +248,9 @@ export default function POSPage() {
 
   return (
     <Layout>
-      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-8rem)] lg:h-auto">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Products Section */}
-        <div className="flex-1 space-y-4">
+        <div className="flex-1 space-y-4 w-full min-w-0">
           {/* Search & Filter */}
           <div className="bg-white rounded-xl p-4 space-y-4">
             <div className="relative">
@@ -278,7 +291,7 @@ export default function POSPage() {
           </div>
 
           {/* Products Grid */}
-          <div className="flex-1 overflow-y-auto">
+          <div>
             {loading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {[...Array(8)].map((_, i) => (
@@ -322,7 +335,7 @@ export default function POSPage() {
         </div>
 
         {/* Cart Section */}
-        <div className="lg:w-80 xl:w-96 bg-white rounded-2xl shadow-sm flex flex-col overflow-hidden">
+        <div className="w-full lg:w-80 xl:w-96 flex-shrink-0 bg-white rounded-2xl shadow-sm flex flex-col overflow-hidden lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)]">
           <div className="px-5 py-4 border-b border-gray-100">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
@@ -399,7 +412,10 @@ export default function POSPage() {
                     {t('cancelSale')}
                   </button>
                   <button
-                    onClick={() => setShowCheckout(true)}
+                    onClick={() => {
+                      setCheckoutError(null);
+                      setShowCheckout(true);
+                    }}
                     className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-emerald-500/30 transition-all font-bangla"
                   >
                     {t('checkout')}

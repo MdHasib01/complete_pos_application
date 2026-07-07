@@ -126,7 +126,45 @@ The reused scaffold had a broken session layer that blocked every authorized rou
 - `dao/authentication.go` `CreateSession` — now sets `expireat`/`lastused`/`is_valid` on
   insert (previously `expireat` was `NULL`, so sessions read as already-expired).
 
-## 6. Notes / follow-ups
+## 6. Cloudinary product images
+
+Product images are stored in Cloudinary; the DB keeps the `image_public_id` so the
+asset can be removed when the product (or its image) is deleted. All Cloudinary calls
+are **server-side** (the API secret never reaches the browser).
+
+| Item | Status |
+|------|--------|
+| Migration `000004_product_image.up.sql` — `products.image_public_id` | ✅ |
+| Config keys `cloudinaryCloudName/APIKey/APISecret` (config.json + config.go) | ✅ |
+| `pkg/cloudinary/cloudinary.go` — signed upload + destroy (stdlib, no SDK) | ✅ |
+| `POST /uploads/image` (ManageProducts) → `{ public_id, url }` | ✅ |
+| `DELETE /uploads/image` (ManageProducts) — destroy by public_id | ✅ |
+| Product create/update/delete carry `image_public_id` | ✅ |
+| Backend deletes old image on product update (image replaced) and on product delete | ✅ |
+| Frontend product form: upload on file-select, preview, remove | ✅ |
+
+### Image lifecycle (exactly as requested)
+1. Selecting a file uploads it to Cloudinary immediately (via the backend) and shows a preview.
+2. **Cancel** the form, or a **save failure** (DB error / validation) → the just-uploaded,
+   not-yet-persisted image is deleted from Cloudinary (frontend, tracks `pendingPublicId`).
+3. **Delete product** → backend deletes the row then destroys the Cloudinary image.
+4. Replacing the image on an existing product → backend destroys the previous asset after update.
+
+Verified live against the given Cloudinary account: upload returns a real `public_id`;
+deleting the product removed the asset (Cloudinary Admin API returns 404 for it).
+
+## 7. POS "sell" bug fix (checkout was unclickable)
+
+Symptom: clicking checkout/complete on `/pos` did nothing and **no `POST /sales` ever
+reached the backend**. Root cause was a **layout** bug, not the API: the products grid
+(`h-[calc(100vh-8rem)]` + `flex-1 overflow-y-auto` without a proper height/`min-h-0`
+chain) overflowed and rendered on top of the cart's Checkout/Complete buttons, so the
+grid intercepted the clicks. Replaced with a natural-flow layout (`items-start`, sticky
+cart column). Reproduced and confirmed fixed with a headless-browser run (checkout →
+complete → `POST /sales` 200). Also added visible checkout error handling and an
+auth-expiry redirect to `/login`.
+
+## 8. Notes / follow-ups
 - JWT signing key is currently the scaffold's hardcoded `internal_key`; move to config/env for production.
 - Sessions expire after 1h and are refreshed on each authorized request.
 - `sales.user_id` is the integer user id from the JWT session (server-assigned, never trusted from client).

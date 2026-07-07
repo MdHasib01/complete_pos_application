@@ -70,10 +70,19 @@ async function request<T>(
 
   if (!res.ok || (payload && payload.error)) {
     const code = payload?.error || `HTTP ${res.status}`;
-    if (res.status === 401 || res.status === 403) {
-      // token no longer valid — drop it so the app returns to login
-      if (code === 'api.gopgserver.err.004' || code === 'api.gopgserver.err.056') {
-        tokenStore.clear();
+    // Invalid/expired token (or any auth rejection): drop it and return to login
+    // so the user isn't stuck in a UI that silently fails every request.
+    const authExpired =
+      code === 'api.gopgserver.err.004' || // invalid token
+      code === 'api.gopgserver.err.056' || // token expired
+      code === 'api.gopgserver.err.001'; // token required
+    if ((res.status === 401 || res.status === 403) && authExpired) {
+      tokenStore.clear();
+      if (
+        typeof window !== 'undefined' &&
+        !window.location.pathname.startsWith('/login')
+      ) {
+        window.location.assign('/login');
       }
     }
     throw new Error(translateError(code));
